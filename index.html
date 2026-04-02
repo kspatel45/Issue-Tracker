@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UP Vision Issue Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS/libs/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS/dist/pptxgen.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+        .tabs { display: flex; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 15px; background: #e9ecef; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .tab-btn.active { background: #0056b3; color: white; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .full-width { grid-column: span 2; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #555; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button.action-btn { background: #28a745; color: white; border: none; padding: 12px 20px; cursor: pointer; border-radius: 4px; font-size: 16px; margin-top: 15px; }
+        button.action-btn:hover { background: #218838; }
+        button:disabled { background: #ccc !important; cursor: wait; }
+        .camera-box { border: 2px dashed #ccc; padding: 15px; text-align: center; background: #fafafa; border-radius: 4px; margin-top: 10px;}
+        #video { width: 100%; max-width: 320px; border-radius: 4px; background: #000; display: none; margin: 10px auto; }
+        .preview-img { width: 70px; height: 70px; object-fit: cover; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        .chart-container { width: 100%; max-width: 400px; height: 300px; margin: 20px auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; cursor: pointer; }
+        th { background-color: #0056b3; color: white; cursor: default; }
+        tr:hover { background-color: #f1f1f1; }
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; vertical-align: middle; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #007bff; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        #loadingOverlay { display: none; color: #0056b3; font-weight: bold; margin-bottom: 10px; }
+
+        /* MODAL STYLES */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); overflow-y: auto; }
+        .modal-content { background-color: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 700px; border-radius: 8px; }
+        .modal-header { border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .close-btn { font-size: 28px; font-weight: bold; cursor: pointer; color: #333; }
+        .detail-item { margin-bottom: 10px; }
+        .detail-item b { color: #0056b3; }
+        .modal-images { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        .modal-images img { width: 100%; max-width: 200px; border-radius: 4px; border: 1px solid #ddd; cursor: zoom-in; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>UP Vision Issue Tracker</h1>
+    
+    <div class="tabs">
+        <button id="tabPage1" class="tab-btn active" onclick="switchTab('page1', this)">Record Issue</button>
+        <button id="tabPage2" class="tab-btn" onclick="switchTab('page2', this)">Dashboard & Export</button>
+    </div>
+
+    <div id="page1" class="page active">
+        <form id="issueForm">
+            <div class="form-grid">
+                <div><label>SO Number</label><input type="text" id="soNumber" required></div>
+                <div><label>Client Name</label><input type="text" id="clientName" required></div>
+                <div><label>Product Type</label><input type="text" id="productType" required></div>
+                <div>
+                    <label>Department</label>
+                    <select id="department" required>
+                        <option value="Hardware">Hardware</option>
+                        <option value="Software">Software</option>
+                        <option value="Assembly">Assembly</option>
+                        <option value="Logistics">Logistics</option>
+                    </select>
+                </div>
+                <div class="full-width"><label>Main Issue</label><input type="text" id="mainIssue" required></div>
+                <div class="full-width"><label>Issue Note</label><textarea id="issueNote" rows="2" required></textarea></div>
+                <div><label>Raised Time</label><input type="datetime-local" id="raisedTime" required></div>
+                <div><label>Solved Time</label><input type="datetime-local" id="solvedTime"></div>
+                
+                <div>
+                    <label>Issue need to be raised?</label>
+                    <select id="needRaise" onchange="toggleRaiseFields()">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Repetitive Issue?</label>
+                    <select id="isRepetitive">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                    </select>
+                </div>
+                
+                <div id="raiseDetails" class="full-width form-grid" style="display:none; background:#f9f9f9; padding:10px;">
+                    <div><label>Did it get raised?</label><select id="didRaise"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+                    <div><label>Raised to who?</label><input type="text" id="raisedTo"></div>
+                    <div class="full-width"><label>Follow up Note</label><textarea id="followUpNote" rows="1"></textarea></div>
+                </div>
+
+                <div class="full-width camera-box">
+                    <div style="margin-bottom: 10px;">
+                        <span style="font-weight:bold; margin-right: 10px;">Camera:</span>
+                        <label class="switch">
+                          <input type="checkbox" id="cameraToggle" onchange="toggleCamera()">
+                          <span class="slider"></span>
+                        </label>
+                    </div>
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                    <button type="button" class="action-btn" style="background:#17a2b8; margin: 0 5px;" onclick="takePhoto()">Capture</button>
+                    <input type="file" id="issueImages" accept="image/*" multiple style="margin-top:10px;">
+                    <div id="imagePreviewContainer" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            <button type="submit" id="submitBtn" class="action-btn">Save to Google Sheet</button>
+        </form>
+    </div>
+
+    <div id="page2" class="page">
+        <div id="loadingOverlay">Syncing with Google Sheet...</div>
+        <div class="form-grid" style="align-items: end;">
+            <div><label>Start Date</label><input type="date" id="filterStart"></div>
+            <div><label>End Date</label><input type="date" id="filterEnd"></div>
+            <button class="action-btn" onclick="fetchDataFromSheet()">Refresh Data</button>
+            <button class="action-btn" style="background:#6f42c1;" onclick="exportToPPT()">Export PPT</button>
+        </div>
+        <div class="chart-container"><canvas id="deptChart"></canvas></div>
+        <p style="font-size: 12px; color: #888;">* Click on any row to see full details and photos.</p>
+        <table id="resultsTable">
+            <thead><tr><th>SO#</th><th>Client</th><th>Issue</th><th>Repetitive</th><th>Dept</th><th>Status</th></tr></thead>
+            <tbody id="issueTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="issueModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Issue Details</h2>
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+        </div>
+        <div id="modalBody">
+            </div>
+        <div id="modalImages" class="modal-images">
+            </div>
+    </div>
+</div>
+
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz1ZG3r14NrWfi_N_4SvkHuTdCAv_69CAXQVDg1sgzlzFV_iWqWfEs6FTxWiwfLzofD/exec";
+
+    let capturedImages = [];
+    let myChart = null;
+    let stream = null;
+    let cloudData = []; 
+
+    async function toggleCamera() {
+        const video = document.getElementById('video');
+        const isChecked = document.getElementById('cameraToggle').checked;
+        if (isChecked) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                video.srcObject = stream;
+                video.style.display = 'block';
+            } catch (err) {
+                alert("Camera Access Denied.");
+                document.getElementById('cameraToggle').checked = false;
+            }
+        } else {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.style.display = 'none';
+            }
+        }
+    }
+
+    function takePhoto() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const scale = 400 / video.videoWidth; 
+        canvas.width = 400; canvas.height = video.videoHeight * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedImages.push(canvas.toDataURL('image/jpeg', 0.3));
+        document.getElementById('imagePreviewContainer').innerHTML = capturedImages.map(src => `<img src="${src}" class="preview-img">`).join('');
+    }
+
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+        if(tabId === 'page2') fetchDataFromSheet();
+    }
+
+    function toggleRaiseFields() {
+        document.getElementById('raiseDetails').style.display = document.getElementById('needRaise').value === 'Yes' ? 'grid' : 'none';
+    }
+
+    // --- SAVE ---
+    document.getElementById('issueForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true; btn.innerText = "Saving...";
+
+        try {
+            const fileInput = document.getElementById('issueImages');
+            let allImages = [...capturedImages];
+            for (let file of fileInput.files) {
+                const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(file); });
+                allImages.push(b64);
+            }
+
+            const issueData = {
+                soNumber: document.getElementById('soNumber').value,
+                clientName: document.getElementById('clientName').value,
+                productType: document.getElementById('productType').value,
+                department: document.getElementById('department').value,
+                mainIssue: document.getElementById('mainIssue').value,
+                issueNote: document.getElementById('issueNote').value,
+                raisedTime: document.getElementById('raisedTime').value,
+                solvedTime: document.getElementById('solvedTime').value || "N/A",
+                needRaise: document.getElementById('needRaise').value,
+                isRepetitive: document.getElementById('isRepetitive').value,
+                imageUrls: allImages.join(" | ")
+            };
+
+            await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(issueData) });
+            alert("SUCCESS: Saved!");
+            document.getElementById('issueForm').reset();
+            capturedImages = []; document.getElementById('imagePreviewContainer').innerHTML = '';
+            toggleRaiseFields();
+        } catch (err) { alert("Error: " + err.message); }
+        finally { btn.disabled = false; btn.innerText = "Save to Google Sheet"; }
+    });
+
+    // --- FETCH ---
+    async function fetchDataFromSheet() {
+        document.getElementById('loadingOverlay').style.display = 'block';
+        try {
+            const res = await fetch(SCRIPT_URL);
+            cloudData = await res.json();
+            updateDashboard();
+        } catch (err) { console.error(err); }
+        finally { document.getElementById('loadingOverlay').style.display = 'none'; }
+    }
+
+    function updateDashboard() {
+        let data = [...cloudData];
+        const start = document.getElementById('filterStart').value;
+        const end = document.getElementById('filterEnd').value;
+        if(start && end) {
+            data = data.filter(i => { const d = String(i.RaisedTime).split('T')[0]; return d >= start && d <= end; });
+        }
+
+        const tbody = document.getElementById('issueTableBody');
+        tbody.innerHTML = '';
+        let counts = { Hardware: 0, Software: 0, Assembly: 0, Logistics: 0 };
+
+        data.forEach((i, index) => {
+            if(counts[i.Department] !== undefined) counts[i.Department]++;
+            tbody.innerHTML += `<tr onclick="showDetails(${index})">
+                <td>${i.SONumber}</td>
+                <td>${i.ClientName}</td>
+                <td>${i.MainIssue}</td>
+                <td>${i.Repetitive}</td>
+                <td>${i.Department}</td>
+                <td>${(i.SolvedTime && i.SolvedTime !== "N/A") ? 'Solved' : 'Pending'}</td>
+            </tr>`;
+        });
+
+        if(myChart) myChart.destroy();
+        myChart = new Chart(document.getElementById('deptChart'), {
+            type: 'pie',
+            data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: ['#007bff','#28a745','#ffc107','#dc3545'] }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    // --- POPUP LOGIC ---
+    window.showDetails = function(index) {
+        const item = cloudData[index];
+        const modal = document.getElementById('issueModal');
+        const body = document.getElementById('modalBody');
+        const imgContainer = document.getElementById('modalImages');
+
+        document.getElementById('modalTitle').innerText = "SO# " + item.SONumber;
+
+        body.innerHTML = `
+            <div class="detail-item"><b>Client:</b> ${item.ClientName}</div>
+            <div class="detail-item"><b>Product:</b> ${item.ProductType}</div>
+            <div class="detail-item"><b>Issue:</b> ${item.MainIssue}</div>
+            <div class="detail-item"><b>Details:</b> ${item.IssueNote}</div>
+            <div class="detail-item"><b>Department:</b> ${item.Department}</div>
+            <div class="detail-item"><b>Raised:</b> ${item.RaisedTime}</div>
+            <div class="detail-item"><b>Solved:</b> ${item.SolvedTime}</div>
+            <div class="detail-item"><b>Repetitive:</b> ${item.Repetitive}</div>
+        `;
+
+        imgContainer.innerHTML = '';
+        if(item.ImageURLs && item.ImageURLs.length > 10) {
+            const imgs = item.ImageURLs.split(" | ");
+            imgs.forEach(src => {
+                if(src.startsWith("data:image")) {
+                    imgContainer.innerHTML += `<img src="${src}" onclick="window.open('${src}')">`;
+                }
+            });
+        } else {
+            imgContainer.innerHTML = '<p style="color:#888;">No images uploaded for this record.</p>';
+        }
+
+        modal.style.display = "block";
+    };
+
+    window.closeModal = function() {
+        document.getElementById('issueModal').style.display = "none";
+    };
+
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('issueModal')) closeModal();
+    };
+
+    function exportToPPT() {
+        if(cloudData.length === 0) return alert("No data.");
+        let pres = new PptxGenJS();
+        let slide = pres.addSlide();
+        let rows = [["SO#", "Client", "Issue", "Dept"]];
+        cloudData.slice(0, 15).forEach(i => rows.push([i.SONumber, i.ClientName, i.MainIssue, i.Department]));
+        slide.addTable(rows, { x: 0.5, y: 1, w: 9, fontSize: 10 });
+        pres.writeFile({ fileName: `UP_Vision_Report.pptx` });
+    }
+</script>
+</body>
+</html>
